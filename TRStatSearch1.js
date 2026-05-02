@@ -1,8 +1,4 @@
-/**
- * TRStatSearch - Full Rewrite With Levels + Card Counts
- * Paste this whole block over your old Tabs.TRSorterByStat block.
- * This tab is rewritten by DarknessKoc
- */
+
 
 Tabs.TRSorterByStat = {
     tabOrder: 8005,
@@ -10,11 +6,13 @@ Tabs.TRSorterByStat = {
 
     myDiv: null,
 
+    // UI state
     sortKey: 0,
-    sortDir: -1,
+    sortDir: -1, // -1 = Desc, 1 = Asc
     searchText: "",
     levelFilter: 0,
 
+    // cache/state
     _styleInjected: false,
     _cardCache: {},
     _textCache: {},
@@ -22,13 +20,13 @@ Tabs.TRSorterByStat = {
     _timer: null,
 
     // -----------------------------
-    // Helpers
+    // Basic helpers
     // -----------------------------
-    has: function (obj, key) {
+    txSafe: function (s) {
         try {
-            return Object.prototype.hasOwnProperty.call(obj, key);
+            return (typeof tx === "function") ? tx(s) : s;
         } catch (e) {
-            return false;
+            return s;
         }
     },
 
@@ -39,22 +37,18 @@ Tabs.TRSorterByStat = {
         return document.getElementById(id);
     },
 
-    trim: function (s) {
-        return String(s == null ? "" : s).replace(/^\s+|\s+$/g, "");
-    },
-
-    lower: function (s) {
-        return this.trim(s).toLowerCase();
-    },
-
     htmlSafe: function (s) {
-        s = String(s == null ? "" : s);
+        s = (s == null) ? "" : String(s);
         return s
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    },
+
+    lower: function (s) {
+        return (s == null ? "" : String(s)).toLowerCase();
     },
 
     getCM: function () {
@@ -102,6 +96,7 @@ Tabs.TRSorterByStat = {
     },
 
     waitFor: function (testFn, readyFn, timeoutMs) {
+        var t = this;
         var start = new Date().getTime();
 
         function tick() {
@@ -129,72 +124,58 @@ Tabs.TRSorterByStat = {
         tick();
     },
 
-    isArray: function (x) {
-        return Object.prototype.toString.call(x) === "[object Array]";
-    },
-
     // -----------------------------
     // CSS
     // -----------------------------
     ensureStyle: function () {
         if (this._styleInjected) return;
 
-        if (document.getElementById("trss3_style")) {
+        if (document.getElementById("trss2_style")) {
             this._styleInjected = true;
             return;
         }
 
         var css = [];
-        css.push("#trss3_wrap{box-sizing:border-box;width:100%;font-size:12px;}");
-        css.push(".trss3_credit{width:100%;box-sizing:border-box;text-align:center;font-weight:bold;font-size:13px;padding:7px 10px;margin:0 0 8px 0;border-radius:8px;background:#151515;color:#ffd700;border:1px solid #444;}");
-        css.push(".trss3_panel{box-sizing:border-box;width:100%;padding:8px;margin-bottom:8px;border:1px solid #333;border-radius:8px;background:#1d1d1d;color:#eee;}");
-        css.push(".trss3_row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}");
-        css.push(".trss3_row label{font-weight:bold;}");
-        css.push(".trss3_row input[type='text']{width:270px;padding:3px 6px;box-sizing:border-box;}");
-        css.push(".trss3_row select{max-width:290px;padding:2px 4px;}");
-        css.push(".trss3_btn{padding:3px 10px;cursor:pointer;border-radius:4px;border:1px solid #555;background:#2b2b2b;color:#fff;}");
-        css.push(".trss3_btn:hover{background:#3a3a3a;}");
-        css.push(".trss3_status{padding:6px 2px;color:#ddd;opacity:0.9;}");
-        css.push(".trss3_small{opacity:0.8;font-size:11px;}");
-        css.push(".trss3_summary{margin-top:8px;padding:8px;border:1px solid #333;border-radius:8px;background:#111;color:#eee;}");
-        css.push(".trss3_summary_title{font-weight:bold;color:#ffd700;margin-bottom:6px;}");
-        css.push(".trss3_level_badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}");
-        css.push(".trss3_badge{display:inline-block;padding:3px 7px;border:1px solid #555;border-radius:12px;background:#222;color:#fff;font-size:11px;}");
-        css.push(".trss3_table_wrap{max-height:170px;overflow:auto;border:1px solid #333;border-radius:6px;}");
-        css.push(".trss3_table{width:100%;border-collapse:collapse;font-size:11px;}");
-        css.push(".trss3_table th{position:sticky;top:0;background:#222;color:#ffd700;text-align:left;padding:4px;border-bottom:1px solid #444;}");
-        css.push(".trss3_table td{padding:4px;border-bottom:1px solid #292929;}");
-        css.push(".trss3_table tr:hover td{background:#1c1c1c;}");
-        css.push("#trss3_cards{height:calc(100vh - 410px);min-height:260px;overflow-y:auto;overflow-x:hidden;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start;padding:2px;box-sizing:border-box;}");
-        css.push("#trss3_cards .trss3_card{width:100%;box-sizing:border-box;border:1px solid #333;border-radius:8px;background:#111;padding:4px;}");
-        css.push(".trss3_card_meta{display:flex;justify-content:space-between;gap:5px;align-items:center;padding:3px 5px;margin-bottom:4px;border-radius:5px;background:#222;color:#ffd700;font-weight:bold;font-size:11px;}");
-        css.push("#trss3_cards .trss3_card > *{width:100% !important;max-width:100% !important;box-sizing:border-box !important;}");
-        css.push("@media(max-width:1300px){#trss3_cards{grid-template-columns:repeat(3,minmax(0,1fr));}}");
-        css.push("@media(max-width:950px){#trss3_cards{grid-template-columns:repeat(2,minmax(0,1fr));}}");
+        css.push("#trss2_wrap{box-sizing:border-box;width:100%;font-size:12px;}");
+        css.push(".trss2_credit{width:100%;box-sizing:border-box;text-align:center;font-weight:bold;font-size:13px;padding:7px 10px;margin:0 0 8px 0;border-radius:8px;background:#151515;color:#ffd700;border:1px solid #444;}");
+        css.push(".trss2_panel{box-sizing:border-box;width:100%;padding:8px;margin-bottom:8px;border:1px solid #333;border-radius:8px;background:#1d1d1d;color:#eee;}");
+        css.push(".trss2_row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}");
+        css.push(".trss2_row label{font-weight:bold;}");
+        css.push(".trss2_row input[type='text']{width:260px;padding:3px 6px;box-sizing:border-box;}");
+        css.push(".trss2_row select{max-width:280px;padding:2px 4px;}");
+        css.push(".trss2_btn{padding:3px 10px;cursor:pointer;border-radius:4px;border:1px solid #555;background:#2b2b2b;color:#fff;}");
+        css.push(".trss2_btn:hover{background:#3a3a3a;}");
+        css.push(".trss2_status{padding:8px 2px;color:#ddd;opacity:0.9;}");
+        css.push(".trss2_small{opacity:0.8;font-size:11px;}");
+        css.push("#trss2_cards{height:calc(100vh - 220px);overflow-y:auto;overflow-x:hidden;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start;padding:2px;box-sizing:border-box;}");
+        css.push("#trss2_cards .trss2_card{width:100%;box-sizing:border-box;}");
+        css.push("#trss2_cards .trss2_card > *{width:100% !important;max-width:100% !important;box-sizing:border-box !important;}");
+        css.push("@media(max-width:1300px){#trss2_cards{grid-template-columns:repeat(3,minmax(0,1fr));}}");
+        css.push("@media(max-width:950px){#trss2_cards{grid-template-columns:repeat(2,minmax(0,1fr));}}");
 
         var style = document.createElement("style");
-        style.id = "trss3_style";
+        style.id = "trss2_style";
         style.type = "text/css";
         style.innerHTML = css.join("\n");
-        document.head.appendChild(style);
 
+        document.head.appendChild(style);
         this._styleInjected = true;
     },
 
     // -----------------------------
-    // Item data
+    // Item data helpers
     // -----------------------------
     getItems: function () {
         var d = this.deps();
-        var out = [];
 
-        if (!d.refOk) return out;
+        if (!d.refOk) return [];
 
         var src = d.ref.UniqueTRItems;
+        var out = [];
 
         for (var k in src) {
-            if (this.has(src, k) && src[k]) {
-                out.push(src[k]);
+            if (!src.hasOwnProperty || src.hasOwnProperty(k)) {
+                if (src[k]) out.push(src[k]);
             }
         }
 
@@ -228,7 +209,7 @@ Tabs.TRSorterByStat = {
             item.displayName != null ? item.displayName :
             "";
 
-        if (this.trim(n) !== "") return String(n);
+        if (n && String(n).trim() !== "") return String(n);
 
         if (item.info) {
             n =
@@ -238,7 +219,7 @@ Tabs.TRSorterByStat = {
                 item.info.title != null ? item.info.title :
                 "";
 
-            if (this.trim(n) !== "") return String(n);
+            if (n && String(n).trim() !== "") return String(n);
         }
 
         var id = this.getItemId(item);
@@ -255,7 +236,7 @@ Tabs.TRSorterByStat = {
             }
         } catch (e) {}
 
-        return id !== "" ? "TR Card " + id : "Unknown TR Card";
+        return "";
     },
 
     getItemLevel: function (item) {
@@ -289,78 +270,9 @@ Tabs.TRSorterByStat = {
         return v;
     },
 
-    readCountField: function (obj) {
-        if (!obj) return null;
-
-        var fields = [
-            "Count", "count",
-            "Qty", "qty",
-            "Quantity", "quantity",
-            "Amount", "amount",
-            "Owned", "owned",
-            "Total", "total",
-            "Num", "num",
-            "Stack", "stack",
-            "Have", "have",
-            "Copies", "copies",
-            "numOwned", "NumOwned",
-            "ownedCount", "OwnedCount"
-        ];
-
-        for (var i = 0; i < fields.length; i++) {
-            if (obj[fields[i]] != null) {
-                var n = parseInt(obj[fields[i]], 10);
-                if (!isNaN(n) && n >= 0) return n;
-            }
-        }
-
-        return null;
-    },
-
-    getOwnedCount: function (item) {
-        if (!item) return 0;
-
-        var direct = this.readCountField(item);
-        if (direct != null) return direct;
-
-        if (item.info) {
-            var nested = this.readCountField(item.info);
-            if (nested != null) return nested;
-        }
-
-        var id = this.getItemId(item);
-
-        try {
-            if (id !== "" && typeof uW !== "undefined") {
-                var sources = [
-                    uW.itemcounts,
-                    uW.itemCounts,
-                    uW.inventory,
-                    uW.Inventory,
-                    uW.items,
-                    uW.Items,
-                    uW.ksoItems,
-                    uW.itemlist
-                ];
-
-                for (var i = 0; i < sources.length; i++) {
-                    var src = sources[i];
-                    if (!src) continue;
-
-                    var node = src["i" + id] || src[id];
-                    var c = this.readCountField(node);
-
-                    if (c != null) return c;
-                }
-            }
-        } catch (e) {}
-
-        // Fallback: if the card object exists, count it as 1.
-        return 1;
-    },
-
     getItemEffects: function (item) {
         if (!item) return null;
+
         return item.effects || item.Effects || item.effect || item.Effect || null;
     },
 
@@ -399,18 +311,19 @@ Tabs.TRSorterByStat = {
         if (id !== "") return "id:" + id;
 
         var name = this.getItemName(item);
-        var lv = this.getItemLevel(item);
 
         var eff = "";
         try {
             eff = JSON.stringify(this.getItemEffects(item) || {});
-        } catch (e) {}
+        } catch (e) {
+            eff = "";
+        }
 
-        return "name:" + name + "|lv:" + lv + "|eff:" + eff;
+        return "name:" + name + "|eff:" + eff;
     },
 
     // -----------------------------
-    // Render cards
+    // Card render/search text
     // -----------------------------
     renderCard: function (item) {
         var key = this.getCacheKey(item);
@@ -423,36 +336,16 @@ Tabs.TRSorterByStat = {
             var d = this.deps();
 
             if (!d.refOk) {
-                html = "<div class='trss3_status'>Waiting for TR card renderer...</div>";
+                html = "<div class='trss2_status'>Waiting for TR card renderer...</div>";
             } else {
                 var card = d.ref.DisplayTRCard(item, true, 1);
-                html = this.isArray(card) ? card.join("") : String(card || "");
+                html = (card instanceof Array) ? card.join("") : String(card || "");
             }
         } catch (e) {
-            html = "<div class='trss3_status'>Card render failed.</div>";
+            html = "<div class='trss2_status'>Card render failed.</div>";
         }
 
         this._cardCache[key] = html;
-        return html;
-    },
-
-    renderCardBox: function (item) {
-        var name = this.getItemName(item);
-        var lv = this.getItemLevel(item);
-        var count = this.getOwnedCount(item);
-
-        var levelText = lv > 0 ? "Level " + lv : "Level ?";
-        var countText = "Have: " + count;
-
-        var html = "";
-        html += "<div class='trss3_card'>";
-        html += "   <div class='trss3_card_meta'>";
-        html += "       <span>" + this.htmlSafe(levelText) + "</span>";
-        html += "       <span>" + this.htmlSafe(countText) + "</span>";
-        html += "   </div>";
-        html += this.renderCard(item);
-        html += "</div>";
-
         return html;
     },
 
@@ -467,7 +360,9 @@ Tabs.TRSorterByStat = {
             var div = document.createElement("div");
             div.innerHTML = this.renderCard(item);
             text = div.textContent || div.innerText || "";
-        } catch (e) {}
+        } catch (e) {
+            text = "";
+        }
 
         this._textCache[key] = text;
         return text;
@@ -479,7 +374,6 @@ Tabs.TRSorterByStat = {
         parts.push(this.getItemName(item));
         parts.push(this.getItemId(item));
         parts.push("level " + this.getItemLevel(item));
-        parts.push("have " + this.getOwnedCount(item));
         parts.push(this.getRenderedText(item));
 
         try {
@@ -490,11 +384,11 @@ Tabs.TRSorterByStat = {
     },
 
     // -----------------------------
-    // Filtering and sorting
+    // Filters
     // -----------------------------
     filterBySearch: function (list) {
         var t = this;
-        var q = t.lower(t.searchText);
+        var q = t.lower(t.searchText).trim();
 
         if (!q) return list;
 
@@ -527,7 +421,7 @@ Tabs.TRSorterByStat = {
 
         if (!effects || !effectId) return false;
 
-        if (this.isArray(effects)) {
+        if (effects instanceof Array) {
             for (var i = 0; i < effects.length; i++) {
                 if (this.getSlotEffectId(effects[i]) === effectId) return true;
             }
@@ -535,8 +429,10 @@ Tabs.TRSorterByStat = {
         }
 
         for (var k in effects) {
-            if (this.has(effects, k)) {
-                if (this.getSlotEffectId(effects[k]) === effectId) return true;
+            if (!effects.hasOwnProperty || effects.hasOwnProperty(k)) {
+                if (k.indexOf("slot") === 0 || typeof effects[k] === "object") {
+                    if (this.getSlotEffectId(effects[k]) === effectId) return true;
+                }
             }
         }
 
@@ -585,11 +481,13 @@ Tabs.TRSorterByStat = {
             }
         }
 
-        if (this.isArray(effects)) {
+        if (effects instanceof Array) {
             for (var i = 0; i < effects.length; i++) addSlot(effects[i]);
         } else {
             for (var k in effects) {
-                if (this.has(effects, k)) addSlot(effects[k]);
+                if (!effects.hasOwnProperty || effects.hasOwnProperty(k)) {
+                    addSlot(effects[k]);
+                }
             }
         }
 
@@ -601,19 +499,12 @@ Tabs.TRSorterByStat = {
 
         if (!t.sortKey) {
             list.sort(function (a, b) {
-                var al = t.getItemLevel(a);
-                var bl = t.getItemLevel(b);
-
-                if (al !== bl) return bl - al;
-
                 var an = t.lower(t.getItemName(a));
                 var bn = t.lower(t.getItemName(b));
-
                 if (an < bn) return -1;
                 if (an > bn) return 1;
                 return 0;
             });
-
             return list;
         }
 
@@ -628,14 +519,8 @@ Tabs.TRSorterByStat = {
             var bv = t.getItemStat(b, effectId);
 
             if (av === bv) {
-                var al = t.getItemLevel(a);
-                var bl = t.getItemLevel(b);
-
-                if (al !== bl) return bl - al;
-
                 var an = t.lower(t.getItemName(a));
                 var bn = t.lower(t.getItemName(b));
-
                 if (an < bn) return -1;
                 if (an > bn) return 1;
                 return 0;
@@ -645,160 +530,6 @@ Tabs.TRSorterByStat = {
         });
 
         return list;
-    },
-
-    // -----------------------------
-    // Summary: levels and card counts
-    // -----------------------------
-    buildSummary: function (items) {
-        var byCard = {};
-        var byLevel = {};
-        var totalCopies = 0;
-
-        for (var i = 0; i < items.length; i++) {
-            var item = items[i];
-            var name = this.getItemName(item);
-            var lv = this.getItemLevel(item);
-            var count = this.getOwnedCount(item);
-            var id = this.getItemId(item);
-
-            if (count < 0 || isNaN(count)) count = 0;
-
-            totalCopies += count;
-
-            var levelKey = lv > 0 ? String(lv) : "?";
-
-            if (!byLevel[levelKey]) {
-                byLevel[levelKey] = {
-                    level: levelKey,
-                    types: 0,
-                    copies: 0
-                };
-            }
-
-            byLevel[levelKey].copies += count;
-            byLevel[levelKey].types += 1;
-
-            var key = name + "||" + levelKey;
-
-            if (!byCard[key]) {
-                byCard[key] = {
-                    name: name,
-                    level: levelKey,
-                    copies: 0,
-                    types: 0,
-                    ids: []
-                };
-            }
-
-            byCard[key].copies += count;
-            byCard[key].types += 1;
-
-            if (id !== "") byCard[key].ids.push(id);
-        }
-
-        var levelList = [];
-        for (var lk in byLevel) {
-            if (this.has(byLevel, lk)) levelList.push(byLevel[lk]);
-        }
-
-        levelList.sort(function (a, b) {
-            var av = a.level === "?" ? -1 : parseInt(a.level, 10);
-            var bv = b.level === "?" ? -1 : parseInt(b.level, 10);
-            return bv - av;
-        });
-
-        var cardList = [];
-        for (var ck in byCard) {
-            if (this.has(byCard, ck)) cardList.push(byCard[ck]);
-        }
-
-        var self = this;
-
-        cardList.sort(function (a, b) {
-            var al = a.level === "?" ? -1 : parseInt(a.level, 10);
-            var bl = b.level === "?" ? -1 : parseInt(b.level, 10);
-
-            if (al !== bl) return bl - al;
-
-            if (b.copies !== a.copies) return b.copies - a.copies;
-
-            var an = self.lower(a.name);
-            var bn = self.lower(b.name);
-
-            if (an < bn) return -1;
-            if (an > bn) return 1;
-            return 0;
-        });
-
-        return {
-            totalCopies: totalCopies,
-            levelList: levelList,
-            cardList: cardList
-        };
-    },
-
-    renderSummary: function (items) {
-        var div = this.byId("trss3_summary");
-        if (!div) return;
-
-        var s = this.buildSummary(items);
-
-        var html = "";
-
-        html += "<div class='trss3_summary_title'>Levels + Card Counts</div>";
-
-        html += "<div class='trss3_level_badges'>";
-        html += "<span class='trss3_badge'>Total Have: " + this.htmlSafe(s.totalCopies) + "</span>";
-        html += "<span class='trss3_badge'>Card Types: " + this.htmlSafe(items.length) + "</span>";
-
-        for (var i = 0; i < s.levelList.length; i++) {
-            var l = s.levelList[i];
-            html += "<span class='trss3_badge'>Level " +
-                this.htmlSafe(l.level) +
-                ": " +
-                this.htmlSafe(l.copies) +
-                " cards / " +
-                this.htmlSafe(l.types) +
-                " types</span>";
-        }
-
-        html += "</div>";
-
-        html += "<div class='trss3_table_wrap'>";
-        html += "<table class='trss3_table'>";
-        html += "<thead>";
-        html += "<tr>";
-        html += "<th>Card Name</th>";
-        html += "<th>Level</th>";
-        html += "<th>You Have</th>";
-        html += "<th>Card Objects</th>";
-        html += "<th>IDs</th>";
-        html += "</tr>";
-        html += "</thead>";
-        html += "<tbody>";
-
-        if (!s.cardList.length) {
-            html += "<tr><td colspan='5'>No cards match your filters.</td></tr>";
-        } else {
-            for (var j = 0; j < s.cardList.length; j++) {
-                var c = s.cardList[j];
-
-                html += "<tr>";
-                html += "<td>" + this.htmlSafe(c.name) + "</td>";
-                html += "<td>" + this.htmlSafe(c.level) + "</td>";
-                html += "<td><b>" + this.htmlSafe(c.copies) + "</b></td>";
-                html += "<td>" + this.htmlSafe(c.types) + "</td>";
-                html += "<td>" + this.htmlSafe(c.ids.join(", ")) + "</td>";
-                html += "</tr>";
-            }
-        }
-
-        html += "</tbody>";
-        html += "</table>";
-        html += "</div>";
-
-        div.innerHTML = html;
     },
 
     // -----------------------------
@@ -834,7 +565,7 @@ Tabs.TRSorterByStat = {
     },
 
     populateSortDropdown: function () {
-        var sel = this.byId("trss3_sort");
+        var sel = this.byId("trss2_sort");
         if (!sel) return;
 
         var old = String(this.sortKey || 0);
@@ -847,7 +578,7 @@ Tabs.TRSorterByStat = {
             var keys = [];
 
             for (var e in d.cm.thronestats.tiers) {
-                if (this.has(d.cm.thronestats.tiers, e)) {
+                if (!d.cm.thronestats.tiers.hasOwnProperty || d.cm.thronestats.tiers.hasOwnProperty(e)) {
                     if (d.cm.thronestats.effects[e]) keys.push(e);
                 }
             }
@@ -868,7 +599,7 @@ Tabs.TRSorterByStat = {
     },
 
     populateLevelDropdown: function () {
-        var sel = this.byId("trss3_level");
+        var sel = this.byId("trss2_level");
         if (!sel) return;
 
         var old = String(this.levelFilter || 0);
@@ -878,16 +609,13 @@ Tabs.TRSorterByStat = {
 
         for (var i = 0; i < items.length; i++) {
             var lv = this.getItemLevel(items[i]);
-
             if (lv > 0 && !seen[lv]) {
                 seen[lv] = true;
                 levels.push(lv);
             }
         }
 
-        levels.sort(function (a, b) {
-            return b - a;
-        });
+        levels.sort(function (a, b) { return a - b; });
 
         var html = "";
         html += "<option value='0'>All Levels</option>";
@@ -901,20 +629,16 @@ Tabs.TRSorterByStat = {
     },
 
     // -----------------------------
-    // UI
+    // UI actions
     // -----------------------------
     setStatus: function (msg) {
-        var s = this.byId("trss3_status");
+        var s = this.byId("trss2_status");
         if (s) s.innerHTML = msg;
     },
 
-    setCount: function (shown, total, copies) {
-        var c = this.byId("trss3_count");
-        if (c) {
-            c.innerHTML =
-                "Showing <b>" + shown + "</b> of <b>" + total + "</b> card types" +
-                " | Have <b>" + copies + "</b> total cards";
-        }
+    setCount: function (shown, total) {
+        var c = this.byId("trss2_count");
+        if (c) c.innerHTML = "Showing <b>" + shown + "</b> of <b>" + total + "</b> TR cards";
     },
 
     resetFilters: function () {
@@ -923,10 +647,10 @@ Tabs.TRSorterByStat = {
         this.searchText = "";
         this.levelFilter = 0;
 
-        var sort = this.byId("trss3_sort");
-        var dir = this.byId("trss3_dir");
-        var search = this.byId("trss3_search");
-        var level = this.byId("trss3_level");
+        var sort = this.byId("trss2_sort");
+        var dir = this.byId("trss2_dir");
+        var search = this.byId("trss2_search");
+        var level = this.byId("trss2_level");
 
         if (sort) sort.value = "0";
         if (dir) dir.innerHTML = "Desc";
@@ -946,22 +670,25 @@ Tabs.TRSorterByStat = {
         this.repaint(true);
     },
 
+    // -----------------------------
+    // Painting
+    // -----------------------------
     paintMessage: function (msg) {
-        var cards = this.byId("trss3_cards");
+        var cards = this.byId("trss2_cards");
         if (!cards) return;
 
-        cards.innerHTML = "<div class='trss3_status'>" + msg + "</div>";
+        cards.innerHTML = "<div class='trss2_status'>" + msg + "</div>";
     },
 
     repaint: function (force) {
         var d = this.deps();
-        var cards = this.byId("trss3_cards");
+        var cards = this.byId("trss2_cards");
 
         if (!cards) return;
 
         if (!d.refOk) {
             this.setStatus("Waiting for Tabs.Reference.UniqueTRItems and DisplayTRCard...");
-            this.setCount(0, 0, 0);
+            this.setCount(0, 0);
             this.paintMessage("Waiting for throne room card data...");
             return;
         }
@@ -973,8 +700,6 @@ Tabs.TRSorterByStat = {
         items = this.filterByLevel(items);
         items = this.sortItems(items);
 
-        var summary = this.buildSummary(items);
-
         var sigParts = [];
         sigParts.push("sort:" + this.sortKey);
         sigParts.push("dir:" + this.sortDir);
@@ -982,10 +707,9 @@ Tabs.TRSorterByStat = {
         sigParts.push("level:" + this.levelFilter);
         sigParts.push("total:" + allItems.length);
         sigParts.push("shown:" + items.length);
-        sigParts.push("copies:" + summary.totalCopies);
 
-        for (var i = 0; i < items.length && i < 120; i++) {
-            sigParts.push(this.getCacheKey(items[i]) + ":" + this.getOwnedCount(items[i]));
+        for (var i = 0; i < items.length && i < 80; i++) {
+            sigParts.push(this.getCacheKey(items[i]));
         }
 
         var sig = sigParts.join("|");
@@ -994,38 +718,39 @@ Tabs.TRSorterByStat = {
 
         this._lastSignature = sig;
 
-        this.renderSummary(items);
-
         var html = "";
 
         for (var j = 0; j < items.length; j++) {
-            html += this.renderCardBox(items[j]);
+            html += "<div class='trss2_card'>" + this.renderCard(items[j]) + "</div>";
         }
 
         if (!html) {
-            html = "<div class='trss3_status'>No TR cards match your search or filters.</div>";
+            html = "<div class='trss2_status'>No TR cards match your search or filters.</div>";
         }
 
         cards.innerHTML = html;
 
-        this.setCount(items.length, allItems.length, summary.totalCopies);
+        this.setCount(items.length, allItems.length);
 
         if (!d.cmOk) {
             this.setStatus("Cards loaded. Waiting for throne stat/effect data for sorting...");
         } else {
-            this.setStatus("Ready. Search checks name, ID, level, count, stats, and visible card text.");
+            this.setStatus("Ready. Search checks card name, item ID, itemlist name, and visible card text.");
         }
     },
 
+    // -----------------------------
+    // Event binding
+    // -----------------------------
     bindEvents: function () {
         var t = this;
 
-        var sort = t.byId("trss3_sort");
-        var dir = t.byId("trss3_dir");
-        var search = t.byId("trss3_search");
-        var level = t.byId("trss3_level");
-        var refresh = t.byId("trss3_refresh");
-        var reset = t.byId("trss3_reset");
+        var sort = t.byId("trss2_sort");
+        var dir = t.byId("trss2_dir");
+        var search = t.byId("trss2_search");
+        var level = t.byId("trss2_level");
+        var refresh = t.byId("trss2_refresh");
+        var reset = t.byId("trss2_reset");
 
         if (sort) {
             sort.onchange = function () {
@@ -1037,13 +762,13 @@ Tabs.TRSorterByStat = {
         if (dir) {
             dir.onclick = function () {
                 t.sortDir *= -1;
-                this.innerHTML = t.sortDir === -1 ? "Desc" : "Asc";
+                this.innerHTML = (t.sortDir === -1) ? "Desc" : "Asc";
                 t.repaint(true);
             };
         }
 
         function doSearch() {
-            t.searchText = t.lower(search.value || "");
+            t.searchText = t.lower(search.value || "").trim();
             t.repaint(true);
         }
 
@@ -1076,6 +801,9 @@ Tabs.TRSorterByStat = {
         }
     },
 
+    // -----------------------------
+    // Init
+    // -----------------------------
     init: function (div) {
         var t = this;
 
@@ -1093,47 +821,41 @@ Tabs.TRSorterByStat = {
 
         var html = "";
 
-        html += "<div id='trss3_wrap'>";
+        html += "<div id='trss2_wrap'>";
 
-        html += "  <div class='trss3_credit'>";
+        html += "  <div class='trss2_credit'>";
         html += "      This tab is rewritten by DarknessKoc";
         html += "  </div>";
 
-        html += "  <div class='trss3_panel'>";
-        html += "      <div class='trss3_row'>";
+        html += "  <div class='trss2_panel'>";
+        html += "      <div class='trss2_row'>";
         html += "          <label>Sort By:</label>";
-        html += "          <select id='trss3_sort'>";
+        html += "          <select id='trss2_sort'>";
         html += "              <option value='0'>-- Sort / Filter By Effect --</option>";
         html += "          </select>";
 
-        html += "          <button id='trss3_dir' class='trss3_btn'>Desc</button>";
+        html += "          <button id='trss2_dir' class='trss2_btn'>Desc</button>";
 
         html += "          <label>Search:</label>";
-        html += "          <input id='trss3_search' type='text' placeholder='search name, id, level, count, stat...'>";
+        html += "          <input id='trss2_search' type='text' placeholder='search name, id, stat, card text...'>";
 
         html += "          <label>Card Level:</label>";
-        html += "          <select id='trss3_level'>";
+        html += "          <select id='trss2_level'>";
         html += "              <option value='0'>All Levels</option>";
         html += "          </select>";
 
-        html += "          <button id='trss3_refresh' class='trss3_btn'>Refresh</button>";
-        html += "          <button id='trss3_reset' class='trss3_btn'>Reset</button>";
+        html += "          <button id='trss2_refresh' class='trss2_btn'>Refresh</button>";
+        html += "          <button id='trss2_reset' class='trss2_btn'>Reset</button>";
         html += "      </div>";
 
-        html += "      <div class='trss3_status'>";
-        html += "          <span id='trss3_count'>Showing <b>0</b> of <b>0</b> card types | Have <b>0</b> total cards</span>";
-        html += "          <span class='trss3_small'> | </span>";
-        html += "          <span id='trss3_status'>Loading...</span>";
+        html += "      <div class='trss2_status'>";
+        html += "          <span id='trss2_count'>Showing <b>0</b> of <b>0</b> TR cards</span>";
+        html += "          <span class='trss2_small'> | </span>";
+        html += "          <span id='trss2_status'>Loading...</span>";
         html += "      </div>";
-
-        html += "      <div id='trss3_summary' class='trss3_summary'>";
-        html += "          <div class='trss3_summary_title'>Levels + Card Counts</div>";
-        html += "          <div class='trss3_status'>Loading card counts...</div>";
-        html += "      </div>";
-
         html += "  </div>";
 
-        html += "  <div id='trss3_cards'></div>";
+        html += "  <div id='trss2_cards'></div>";
 
         html += "</div>";
 
@@ -1157,6 +879,7 @@ Tabs.TRSorterByStat = {
             t.repaint(true);
         }, 15000);
 
+        // Live refresh without destroying typing/search.
         t._timer = setInterval(function () {
             try {
                 t.repaint(false);
